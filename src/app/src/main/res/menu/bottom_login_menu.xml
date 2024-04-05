@@ -1,0 +1,10 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_login"
+        android:icon="@drawable/ic_folder"
+        android:title="Iniciar sesión" />
+    <item
+        android:id="@+id/navigation_register"
+        android:icon="@drawable/ic_home"
+        android:title="Registrarse" />
+</menu>

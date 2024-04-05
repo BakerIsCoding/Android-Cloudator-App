@@ -4,22 +4,29 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MenuItem;
 import android.webkit.DownloadListener;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -68,6 +75,28 @@ public class MainActivity extends AppCompatActivity {
 
         // load the website
         webView.loadUrl(myWebSite);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
+
+        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                switch (item.getItemId()) {
+                    case R.id.navigation_archivos:
+                        // Código para mostrar "Archivos"
+                        webView.loadUrl(myWebSite + "/users/files/");
+                        return true;
+                    case R.id.navigation_home:
+                        // Código para volver a "Home"
+                        webView.loadUrl(myWebSite + "/users/");
+                        return true;
+                    case R.id.navigation_perfil:
+                        // Código para mostrar "Perfil"
+                        webView.loadUrl(myWebSite + "/users/edit/");
+                        return true;
+                }
+                return false;
+            }
+        });
     }
 
     // after the file chosen handled, variables are returned back to MainActivity
@@ -180,21 +209,39 @@ public class MainActivity extends AppCompatActivity {
 
 
         @Override
-        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-            super.onReceivedError(view, request, error);
-            /*
-            // show the error message = no internet access
-            webView.loadUrl("file:///android_asset/no_internet.html");
-            // hide the progress bar on error in loading
-            progressDialog.dismiss();
-            Toast.makeText(getApplicationContext(), "Internet issue", Toast.LENGTH_SHORT).show();
-            */
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            super.onReceivedHttpError(view, request, errorResponse);
+            // Verificar si la solicitud fallida es para el marco principal.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                if (request.isForMainFrame()) { // Asegurar que el error es para la página principal.
+                    int statusCode = errorResponse.getStatusCode();
+                    if (statusCode != 200) {
+                        MainActivity.this.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                new AlertDialog.Builder(MainActivity.this)
+                                        .setTitle("Error al cargar la página")
+                                        .setMessage("Ha ocurrido un error al cargar la página. ¿Quieres intentar recargarla?")
+                                        .setPositiveButton("Recargar", new DialogInterface.OnClickListener() {
+                                            @Override
+                                            public void onClick(DialogInterface dialog, int which) {
+                                                view.loadUrl(request.getUrl().toString()); // Recargar la página actual.
+                                            }
+                                        })
+                                        .setNeutralButton("Volver al inicio", new DialogInterface.OnClickListener() {
+                                            @Override
+                                            public void onClick(DialogInterface dialog, int which) {
+                                                view.loadUrl(myWebSite + "/users/"); // Cargar la página de inicio.
+                                            }
+                                        })
+                                        .setNegativeButton("Cancelar", null)
+                                        .show();
+                            }
+                        });
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                //Toast.makeText(getApplicationContext(), "Error: " + error.getDescription(), Toast.LENGTH_LONG).show();
-                Log.e("WebViewError", "Error loading page " + request.getUrl().toString() + ": " + error.getDescription());
+                    }
+                }
             }
-
         }
 
     }
@@ -242,13 +289,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        if(webView.canGoBack()){
+        if (webView.canGoBack()) {
             webView.goBack();
         } else {
             finish();
         }
     }
-
 
 
     private String convertHttpToHttps(String url) {
