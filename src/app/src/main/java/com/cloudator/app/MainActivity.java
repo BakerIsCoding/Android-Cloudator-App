@@ -3,16 +3,22 @@ package com.cloudator.app;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.app.ProgressDialog;
+import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.MenuItem;
+import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -25,13 +31,22 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
 
     // if your website starts with www, exclude it
     private static final String myWebSite = "https://cloudator.live/";
+    private static final String myHostWebsite = "https://host.cloudator.live/";
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
 
     WebView webView;
     ProgressDialog progressDialog;
@@ -45,6 +60,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        //verify storage permissions
+        verifyStoragePermissions(this);
 
         // initialize the progressDialog
         progressDialog = new ProgressDialog(MainActivity.this);
@@ -97,6 +115,19 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
         });
+    }
+
+    public void verifyStoragePermissions(Activity activity) {
+        // Comprobar si tenemos permiso de escritura
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            // No tenemos permisos, así que los pedimos al usuario
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        }
     }
 
     // after the file chosen handled, variables are returned back to MainActivity
@@ -276,13 +307,39 @@ public class MainActivity extends AppCompatActivity {
     DownloadListener downloadListener = new DownloadListener() {
         @Override
         public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+            // Verificar si la URL pertenece al host autorizado
+            if (!url.startsWith(myHostWebsite)) {
+                Toast.makeText(MainActivity.this, "Descarga no autorizada.", Toast.LENGTH_LONG).show();
+                return;
+            }
 
-            progressDialog.dismiss();
-            Intent i = new Intent(Intent.ACTION_VIEW);
+            // Crear una solicitud de descarga
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+            request.setMimeType(mimetype); // Establece el MIME type explicitamente si es conocido, o ajustalo según el archivo
+            String cookies = CookieManager.getInstance().getCookie(url);
+            request.addRequestHeader("cookie", cookies);
+            request.addRequestHeader("User-Agent", userAgent);
 
-            // example of URL = https://www.example.com/invoice.pdf
-            i.setData(Uri.parse(url));
-            startActivity(i);
+            String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype); // Utilizar URLUtil para adivinar el nombre del archivo
+            request.setDescription("Descargando archivo: " + fileName);
+            request.setTitle(fileName);
+
+            request.allowScanningByMediaScanner();
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+
+            File downloadFolder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Cloudator");
+            if (!downloadFolder.exists()) {
+                downloadFolder.mkdirs(); // Crear la carpeta si no existe
+            }
+
+            File destinationFile = new File(downloadFolder, fileName);
+            request.setDestinationUri(Uri.fromFile(destinationFile));
+
+            // Obtener el servicio de descarga y encolar la nueva solicitud
+            DownloadManager downloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            downloadManager.enqueue(request);
+
+            Toast.makeText(getApplicationContext(), "Descargando...", Toast.LENGTH_LONG).show();
         }
     };
 
