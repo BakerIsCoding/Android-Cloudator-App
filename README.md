@@ -21,3 +21,11 @@ Puedes revisar los demás repositorios aquí:
 
 - **Cloudator-Android:** Aplicación móvil.  
   [https://github.com/BakerIsCoding/Android-Cloudator-App/](https://github.com/BakerIsCoding/Android-Cloudator-App/)
+
+# Autores del Proyecto Cloudator
+
+Este proyecto ha sido desarrollado por los siguientes autores:
+
+- **[Cramcat639](https://github.com/Cramcat639)**
+- **[EdNuGa](https://github.com/EdNuGa)**
+- **[BakerIsCoding](https://github.com/BakerIsCoding)**
